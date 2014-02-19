@@ -28,6 +28,11 @@ As an embedded interpreter, it allows multiple interpreter states to coexist in 
 PH7 History - Why PHP?
 =========================
 
+PH7 was developed in the early 2011 by a Tunisian startup for a French conglomerate which was looking for a way to power the web interface of their commercial routers.
+Previously the technology used by the conglomerate was obsolete and based on a minimal HTTP server (micro-httpd written by Jef Poskanzer) and a hard-coded binary (the web interface) served via old CGI interface.
+This poor combination shows its limitation when the company decided to switch to a user-configurable (self config) routers where everything must be done via the web interface. This involve a dynamic web UI that have to deal with many issues.
+In order to keep the low level software layer of the router untouched, it was decided to write all the web interface in a dynamic web oriented programming language and the compilation result to be executed by a virtual machine (PH7) and thus leaving the low-level stack of the router untouched.
+
 
 PH7 in 5 Minutes or Less
 =========================
