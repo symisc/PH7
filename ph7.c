@@ -36690,6 +36690,9 @@ PH7_PRIVATE sxi32 PH7_TokenizeRawText(const char *zInput,sxu32 nLen,SySet *pOut)
 				continue;
 			}
 			zIn++;
+			
+			if ( zIn >= zEnd )
+				break;
 		}
 		if( (sxu32)(zEnd - zIn) < sCtag.nByte ){
 			zIn = zEnd;
