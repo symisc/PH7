@@ -34900,10 +34900,12 @@ static sxi32 SyOSUtilRandomSeed(void *pBuf,sxu32 nLen,void *pUnused)
 	fd = open("/dev/urandom",O_RDONLY);
 	if (fd >= 0 ){
 		if( read(fd,zBuf,nLen) > 0 ){
+			close(fd);
 			return SXRET_OK;
 		}
 		/* FALL THRU */
 	}
+	close(fd);
 	pid = getpid();
 	SyMemcpy((const void *)&pid,zBuf,SXMIN(nLen,sizeof(pid_t)));
 	if( &zBuf[nLen] - &zBuf[sizeof(pid_t)] >= (int)sizeof(struct timeval)  ){
