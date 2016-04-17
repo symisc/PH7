@@ -5,7 +5,7 @@
  *
  * The PH7 CGI interpreter (ph7_cgi.c) is based on PH7 interpreter (ph7_interp.c).
  *
- * Copyright (C) 2015, 谢致邦 (XIE Zhibang) <Yeking@Red54.com>
+ * Copyright (C) 2015-2016, 谢致邦 (XIE Zhibang) <Yeking@Red54.com>
  */
 
 #include <stdio.h>
