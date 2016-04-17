@@ -15,8 +15,8 @@
 
 static void CgiHeader()
 {
-	puts("X-Powered-By: " PH7_SIG);
-	puts("Content-type: text/html; charset=UTF-8\n");
+	puts("X-Powered-By: " PH7_SIG "\r");
+	puts("Content-type: text/html; charset=UTF-8\r\n\r");
 }
 /* 
  * Display an error message and exit.
