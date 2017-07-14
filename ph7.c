@@ -1,6 +1,6 @@
 /*
  * Symisc PH7: An embeddable bytecode compiler and a virtual machine for the PHP(5) programming language.
- * Copyright (C) 2011, 2012, 2013, 2014 Symisc Systems http://ph7.symisc.net/
+ * Copyright (C) 2011-2017 Symisc Systems http://ph7.symisc.net/
  * Version 2.1.4
  * For information on licensing,redistribution of this file,and for a DISCLAIMER OF ALL WARRANTIES
  * please contact Symisc Systems via:
@@ -11,7 +11,7 @@
  *      http://ph7.symisc.net/
  */
 /*
- * Copyright (C) 2011, 2012, 2013, 2014 Symisc Systems. All rights reserved.
+ * Copyright (C) 2011-2017 Symisc Systems. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -2663,7 +2663,7 @@ PH7_PRIVATE sxi32 PH7_ClassInstanceCmp(ph7_class_instance *pLeft,ph7_class_insta
 PH7_PRIVATE void  PH7_ClassInstanceUnref(ph7_class_instance *pThis);
 PH7_PRIVATE sxi32 PH7_ClassInstanceDump(SyBlob *pOut,ph7_class_instance *pThis,int ShowType,int nTab,int nDepth);
 PH7_PRIVATE sxi32 PH7_ClassInstanceCallMagicMethod(ph7_vm *pVm,ph7_class *pClass,ph7_class_instance *pThis,const char *zMethod,
-	sxu32 nByte,const SyString *pAttrName);
+	sxu32 nByte,const SyString *pAttrName, ph7_value *pKey);
 PH7_PRIVATE ph7_value * PH7_ClassInstanceExtractAttrValue(ph7_class_instance *pThis,VmClassAttr *pAttr);
 PH7_PRIVATE sxi32 PH7_ClassInstanceToHashmap(ph7_class_instance *pThis,ph7_hashmap *pMap);
 PH7_PRIVATE sxi32 PH7_ClassInstanceWalk(ph7_class_instance *pThis,
@@ -5710,7 +5710,7 @@ case PH7_OP_LOAD_IDX: {
 	ph7_value *pIdx;
 	pIdx = 0;
 	if( pInstr->iP1 == 0 ){
-		if( !pInstr->iP2){
+		if( !pInstr->iP2){ /* '$a[];' */
 			/* No available index,load NULL */
 			if( pTos >= pStack ){
 				PH7_MemObjRelease(pTos);
@@ -5728,6 +5728,28 @@ case PH7_OP_LOAD_IDX: {
 	}else{
 		pIdx = pTos;
 		pTos--;
+	if( pTos->iFlags & MEMOBJ_OBJ ){
+		/* Object access */
+		ph7_class_instance *pThis;
+		ph7_class *pClass;
+		pThis = (ph7_class_instance *)pTos->x.pOther;
+		pClass = pThis->pClass;
+		if((pIdx->iFlags & MEMOBJ_STRING)){
+			/* Index is string */
+			SyString sName;
+			SyStringInitFromBuf(&sName,(const char *)SyBlobData(&pIdx->sBlob),SyBlobLength(&pIdx->sBlob));
+			/* Call magic method to get element */
+			PH7_ClassInstanceCallMagicMethod(&(*pVm),pClass,pThis,"__get",sizeof("__get")-1,&sName,0);
+		}else if((pIdx->iFlags & MEMOBJ_INT)){
+			/* Index is integer */
+			PH7_ClassInstanceCallMagicMethod(&(*pVm),pClass,pThis,"offsetGet",sizeof("offsetGet")-1,0,pIdx);
+		}else{
+			MemObjSetType(pTos,MEMOBJ_NULL);
+			/* Emit a warning */
+			PH7_VmThrowError(&(*pVm),0,PH7_CTX_WARNING,
+				"Object: Attempt to access an invalid index,PH7 is loading NULL");
+		}
+		break;
 	}
 	if( pTos->iFlags & MEMOBJ_STRING ){
 		/* String access */
@@ -5937,7 +5959,7 @@ case PH7_OP_STORE: {
  * STORE_IDX:   P1 * P3
  * STORE_IDX_R: P1 * P3
  *
- * Perfrom a store operation an a hashmap entry.
+ * Perfrom a store operation on a hashmap entry.
  */
 case PH7_OP_STORE_IDX:
 case PH7_OP_STORE_IDX_REF: {
@@ -5998,6 +6020,39 @@ case PH7_OP_STORE_IDX_REF: {
 						SyBlobAppend(&pObj->sBlob,SyBlobData(&pTos->sBlob),sizeof(char));
 					}
 				}
+			}
+			if( pKey ){
+			  PH7_MemObjRelease(pKey);
+			}
+		}else if( pObj->iFlags & MEMOBJ_OBJ ){
+			/* Treat class instance as array, where the key is an attribute */
+			ph7_class_instance *pThis;
+			ph7_class *pClass;
+			pThis = (ph7_class_instance *)pObj->x.pOther;
+			pClass = pThis->pClass;
+			if( pKey == 0 || (pKey->iFlags & MEMOBJ_NULL)){ /* '$a[]=1;' or '$a[NULL]=1;' */
+				/* Key is empty, append element to object */
+				
+				break;
+			}else if((pKey->iFlags & MEMOBJ_INT)){
+				/* Key is an integer */
+				/* Force an int cast */
+				sxu32 nOfft;
+				PH7_MemObjToInteger(pKey);
+				nOfft = (sxu32)pKey->x.iVal;
+				PH7_ClassInstanceCallMagicMethod(&(*pVm),pClass,pThis,"offsetSet",sizeof("offsetSet")-1,&pKey,0);
+				
+			}else if((pKey->iFlags & MEMOBJ_STRING)){
+				/* The key is a string */
+				SyString sName;
+				SyStringInitFromBuf(&sName,(const char *)SyBlobData(&pKey->sBlob),SyBlobLength(&pKey->sBlob));
+				/* Call magic method to modify element from object index */
+				PH7_ClassInstanceCallMagicMethod(&(*pVm),pClass,pThis,"offsetSet",sizeof("offsetSet")-1,&sName,0);
+
+			}else{
+				/* Key is neither null/int/string */
+				VmErrorFormat(&(*pVm),PH7_CTX_NOTICE,"Object index is invalid");
+				break;
 			}
 			if( pKey ){
 			  PH7_MemObjRelease(pKey);
@@ -7659,7 +7714,7 @@ case PH7_OP_MEMBER: {
 						&pClass->sName,&sName
 						);
 					/* Call the '__Call()' magic method if available */
-					PH7_ClassInstanceCallMagicMethod(&(*pVm),pClass,pThis,"__call",sizeof("__call")-1,&sName);
+					PH7_ClassInstanceCallMagicMethod(&(*pVm),pClass,pThis,"__call",sizeof("__call")-1,&sName,0);
 					/* Pop the method name from the stack */
 					VmPopOperand(&pTos,1);
 					PH7_MemObjRelease(pTos);
@@ -7687,7 +7742,7 @@ case PH7_OP_MEMBER: {
 					VmErrorFormat(&(*pVm),PH7_CTX_ERR,"Undefined class attribute '%z->%z',PH7 is loading NULL",
 						&pClass->sName,&sName);
 					/* Call the __get magic method if available */
-					PH7_ClassInstanceCallMagicMethod(&(*pVm),pClass,pThis,"__get",sizeof("__get")-1,&sName);
+					PH7_ClassInstanceCallMagicMethod(&(*pVm),pClass,pThis,"__get",sizeof("__get")-1,&sName,pNos);
 				}
 				VmPopOperand(&pTos,1); 
 				/* TICKET 1433-49: Deffer garbage collection until attribute loading.
@@ -7789,7 +7844,7 @@ case PH7_OP_MEMBER: {
 								&pClass->sName,&sName
 								);
 							/* Call the '__CallStatic()' magic method if available */
-							PH7_ClassInstanceCallMagicMethod(&(*pVm),pClass,0,"__callStatic",sizeof("__callStatic")-1,&sName);
+							PH7_ClassInstanceCallMagicMethod(&(*pVm),pClass,0,"__callStatic",sizeof("__callStatic")-1,&sName,0);
 						}
 						/* Pop the method name from the stack */
 						if( !pInstr->p3 ){
@@ -7815,7 +7870,7 @@ case PH7_OP_MEMBER: {
 						VmErrorFormat(&(*pVm),PH7_CTX_ERR,"Undefined class attribute '%z::%z',PH7 is loading NULL",
 							&pClass->sName,&sName);
 						/* Call the __get magic method if available */
-						PH7_ClassInstanceCallMagicMethod(&(*pVm),pClass,0,"__get",sizeof("__get")-1,&sName);
+						PH7_ClassInstanceCallMagicMethod(&(*pVm),pClass,0,"__get",sizeof("__get")-1,&sName,0);
 					}
 					/* Pop the attribute name from the stack */
 					if( !pInstr->p3 ){
@@ -8064,7 +8119,7 @@ case PH7_OP_CALL: {
 			if( pTos->iFlags & MEMOBJ_OBJ ){
 				ph7_class_instance *pThis = (ph7_class_instance *)pTos->x.pOther;
 				/* Call the magic method '__invoke' if available */
-				PH7_ClassInstanceCallMagicMethod(&(*pVm),pThis->pClass,pThis,"__invoke",sizeof("__invoke")-1,0);
+				PH7_ClassInstanceCallMagicMethod(&(*pVm),pThis->pClass,pThis,"__invoke",sizeof("__invoke")-1,0,0);
 			}else{
 				/* Raise exception: Invalid function name */
 				VmErrorFormat(&(*pVm),PH7_CTX_WARNING,"Invalid function name,NULL will be returned");
@@ -28567,10 +28622,11 @@ PH7_PRIVATE sxi32 PH7_ClassInstanceCallMagicMethod(
 	ph7_class_instance *pThis, /* Target object */
 	const char *zMethod,       /* Magic method name [i.e: __toString()]*/
 	sxu32 nByte,               /* zMethod length*/
-	const SyString *pAttrName  /* Attribute name */
+	const SyString *pAttrName,  /* Attribute name */
+	ph7_value *pKey
 	)
 {
-	ph7_value *apArg[2] = { 0 , 0 };
+	ph7_value *apArg[3] = { 0 , 0 , 0 };
 	ph7_class_method *pMeth;
 	ph7_value sAttr; /* cc warning */
 	sxi32 rc;
@@ -28584,9 +28640,14 @@ PH7_PRIVATE sxi32 PH7_ClassInstanceCallMagicMethod(
 	nArg = 0;
 	/* Copy arguments */
 	if( pAttrName ){
+		/* Add attribute by name */
 		PH7_MemObjInitFromString(pVm,&sAttr,pAttrName);
 		sAttr.nIdx = SXU32_HIGH; /* Mark as constant */
 		apArg[0] = &sAttr;
+		nArg = 1;
+	}else if( pKey ){
+		/* Add attribute name as index */
+		apArg[0] = pKey;
 		nArg = 1;
 	}
 	/* Call the magic method now */
@@ -61981,7 +62042,7 @@ int ph7_value_is_empty(ph7_value *pVal)
 /* END-OF-IMPLEMENTATION: ph7@embedded@symisc 345-09-46 */
 /*
  * Symisc PH7: An embeddable bytecode compiler and a virtual machine for the PHP(5) programming language.
- * Copyright (C) 2011-2012,Symisc Systems http://ph7.symisc.net/
+ * Copyright (C) 2011-2017,Symisc Systems http://ph7.symisc.net/
  * Version 2.1.4
  * For information on licensing,redistribution of this file,and for a DISCLAIMER OF ALL WARRANTIES
  * please contact Symisc Systems via:
@@ -61992,7 +62053,7 @@ int ph7_value_is_empty(ph7_value *pVal)
  *      http://ph7.symisc.net/
  */
 /*
- * Copyright (C) 2011, 2012 Symisc Systems. All rights reserved.
+ * Copyright (C) 2011-2017 Symisc Systems. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
