@@ -1,4 +1,2 @@
 language: c
-script:
-- cd ${TRAVIS_BUILD_DIR}
-- make
+script: make
