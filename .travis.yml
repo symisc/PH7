@@ -1,3 +1,4 @@
 language: c
 script:
-- CC ph7.c examples/ph7_intro.c -W -Wall -Ofast
+- cd ${TRAVIS_BUILD_DIR}
+- make
