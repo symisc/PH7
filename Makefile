@@ -1,13 +1,14 @@
-CC=gcc
-CFLAGS = -I. -Wall -W
-DEPS   = ph7.h
-OBJ    = ph7.o
-                  
-%.o: %.c $(DEPS)
-	$(CC) -c -o $@ $< $(CFLAGS) 
+CC      = gcc
+CFLAGS  = -I -W -Wall
+RM      = rm -f
 
-ph7-library.out: $(OBJ)
-	gcc -o $@ $^ $(CFLAGS) -Ofast 
 
-clean :
-rm *.o *.asm *.lst *.sym *.rel *.s *.gc* -f *.info
+default: all
+
+all: ph7
+
+ph7: ph7.c
+    $(CC) $(CFLAGS) -o ph7 ph7.c -Ofast
+
+clean veryclean:
+    $(RM) Hello
