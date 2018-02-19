@@ -1,7 +1,8 @@
 PH7
 ===
+[![Build Status](https://travis-ci.org/symisc/PH7.svg?branch=master)](https://travis-ci.org/symisc/PH7)
 
-An Embedded Implementation of PHP (C Library).
+# An Embedded Implementation of PHP (C Library).
 
 PH7 is a in-process software C library which implements a highly-efficient embeddable bytecode compiler and a virtual machine for the PHP programming language. In other words, PH7 is a PHP engine which allow the host application to compile and execute PHP scripts in-process. PH7 is to PHP what SQLite is to SQL.
 
