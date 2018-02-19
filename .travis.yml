@@ -1,2 +1,3 @@
 language: c
-script: cc ph7.c -Ofast
+script:
+- CC ph7.c examples/ph7_intro.c -W -Wall -Ofast
