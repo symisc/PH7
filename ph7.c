@@ -8138,7 +8138,7 @@ case PH7_OP_CALL: {
 				/* TICKET 1433-50: This is a very very unlikely scenario that occurs when the 'genius'
 				 * user have already computed the random generated unique class method name 
 				 * and tries to call it outside it's context [i.e: global scope]. In that 
-				 * case we have to synchrnoize pointers to avoid stack underflow.
+				 * case we have to synchronize pointers to avoid stack underflow.
 				 */
 				while( pArg < pStack ){
 					pArg++;
