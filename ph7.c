@@ -35215,7 +35215,7 @@ PH7_PRIVATE void MD5Final(unsigned char digest[16], MD5Context *ctx){
         MD5Transform(ctx->buf, (sxu32*)ctx->in);
         byteReverse((unsigned char *)ctx->buf, 4);
         SyMemcpy(ctx->buf,digest,0x10);
-        SyZero(ctx,sizeof(ctx));    /* In case it's sensitive */
+        SyZero(ctx,sizeof(*ctx));    /* In case it's sensitive */
 }
 #undef F1
 #undef F2
