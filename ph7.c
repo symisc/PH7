@@ -33581,6 +33581,9 @@ static sxi32 XMLProcessNamesSpace(SyXMLParser *pParse,SyXMLRawStrNS *pTag,SyToke
 	pUri = (SyXMLRawStr *)SySetPeek(pAttr);
 	/* Extract the prefix */
 	pPrefix =  (SyXMLRawStr *)SySetAt(pAttr,SySetUsed(pAttr) - 2);
+	if( pUri == 0 || pPrefix == 0 ){
+		return SXERR_ABORT;
+	}
 	/* Prefix name */
 	if( pPrefix->nByte == sizeof("xmlns")-1 ){
 		/* Default namespace */
